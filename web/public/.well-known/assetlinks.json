@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cloudyone.app",
+      "sha256_cert_fingerprints": [
+        "YOUR_SHA256_FINGERPRINT"
+      ]
+    }
+  }
+]

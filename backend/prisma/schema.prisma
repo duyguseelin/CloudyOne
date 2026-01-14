@@ -1,0 +1,415 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id                String           @id
+  filename          String
+  sizeBytes         BigInt
+  mimeType          String?
+  storagePath       String
+  userId            String
+  folderId          String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime
+  shareToken        String?
+  shareExpiresAt    DateTime?
+  shareOpenCount    Int              @default(0)
+  shareLastOpenedAt DateTime?
+  deletedAt         DateTime?
+  extension         String?
+  isDeleted         Boolean          @default(false)
+  isFavorite        Boolean          @default(false)
+  publicUrl         String?
+  storageKey        String?
+  storageProvider   String?
+  sharePermission   SharePermission?
+  isHidden          Boolean          @default(false)
+  cipherIv          String?
+  contentSha256     String?
+  cryptoVersion     String?
+  edek              String?
+  edekIv            String?
+  encMeta           String?
+  encryptionState   EncryptionState  @default(PLAINTEXT)
+  isEncrypted       Boolean          @default(false)
+  legacyStorageKey  String?
+  metaNameEnc       String?
+  metaNameIv        String?
+  migratedAt        DateTime?
+  migrationError    String?
+  mimeEnc           String?
+  originalName      String?
+  status            FileStatus       @default(ACTIVE)
+  comment           String?
+  teamId            String?
+  teamDek           String?
+  teamDekIv         String?
+  receivedFromEmail String?
+  receivedFromName  String?
+  receivedAt        DateTime?
+  Folder            Folder?          @relation(fields: [folderId], references: [id])
+  Team              Team?            @relation(fields: [teamId], references: [id])
+  User              User             @relation(fields: [userId], references: [id])
+  FileShareLog      FileShareLog[]
+  FileTag           FileTag[]
+  FileVersion       FileVersion[]
+  FileComment       FileComment[]
+
+  @@index([teamId])
+}
+
+model FileShareLog {
+  id        String   @id
+  fileId    String
+  openedAt  DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+  File      File     @relation(fields: [fileId], references: [id])
+}
+
+model FileTag {
+  fileId String
+  tagId  Int
+  File   File   @relation(fields: [fileId], references: [id])
+  Tag    Tag    @relation(fields: [tagId], references: [id])
+
+  @@id([fileId, tagId])
+}
+
+model FileComment {
+  id        String   @id
+  fileId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  File      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([userId])
+}
+
+model FileVersion {
+  id          Int      @id @default(autoincrement())
+  fileId      String
+  version     Int
+  filename    String
+  storagePath String
+  storageKey  String?
+  sizeBytes   BigInt
+  mimeType    String?
+  createdAt   DateTime @default(now())
+  File        File     @relation(fields: [fileId], references: [id])
+
+  @@unique([fileId, version])
+  @@index([fileId])
+}
+
+model Folder {
+  id             String        @id
+  name           String
+  userId         String
+  parentFolderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  isDeleted      Boolean       @default(false)
+  isFavorite     Boolean       @default(false)
+  isHidden       Boolean       @default(false)
+  teamId         String?
+  File           File[]
+  FileRequest    FileRequest[]
+  Folder         Folder?       @relation("FolderToFolder", fields: [parentFolderId], references: [id])
+  other_Folder   Folder[]      @relation("FolderToFolder")
+  Team           Team?         @relation(fields: [teamId], references: [id])
+  User           User          @relation(fields: [userId], references: [id])
+
+  @@index([teamId])
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  FileTag   FileTag[]
+  User      User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, name])
+}
+
+model User {
+  id                     String         @id
+  email                  String         @unique
+  name                   String?
+  passwordHash           String
+  storageLimitBytes      BigInt         @default(0)
+  usedBytes              BigInt         @default(0)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime
+  plan                   String?
+  trashLimitBytes        BigInt         @default(0)
+  trashStorageBytes      BigInt         @default(0)
+  usedStorageBytes       BigInt         @default(0)
+  twoFactorEnabled       Boolean        @default(false)
+  twoFactorSecret        String?
+  role                   String         @default("user")
+  hiddenFilesPin         String?
+  cryptoVersion          Int?
+  kdfParams              String?
+  kdfSalt                String?
+  profilePhoto           String?
+  profilePhotoKey        String?
+  recoveryEnabled        Boolean        @default(false)
+  recoveryKeyEnc         String?
+  recoveryKeySalt        String?
+  trackShareLinks        Boolean?       @default(true)
+  warnLargeFiles         Boolean?       @default(true)
+  emailVerified          Boolean?       @default(false)
+  emailVerificationToken String?
+  Activity               Activity[]
+  File                   File[]
+  FileRequest            FileRequest[]
+  FileComment            FileComment[]
+  Folder                 Folder[]
+  RefreshToken           RefreshToken[]
+  Tag                    Tag[]
+  OwnedTeams             Team[]         @relation("TeamOwner")
+  TeamMemberships        TeamMember[]
+}
+
+model RefreshToken {
+  id                String    @id @default(cuid())
+  tokenHash         String    @unique
+  userId            String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  ip                String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+  User              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  ownerId     String
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  Files       File[]
+  Folders     Folder[]
+  Owner       User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  Invites     TeamInvite[]
+  Members     TeamMember[]
+
+  @@index([ownerId])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      TeamRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+model TeamInvite {
+  id          String       @id @default(cuid())
+  teamId      String
+  email       String
+  role        TeamRole     @default(MEMBER)
+  token       String       @unique
+  invitedBy   String?
+  status      InviteStatus @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime     @default(now())
+  respondedAt DateTime?
+  updatedAt   DateTime     @updatedAt
+  Team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([email])
+  @@index([token])
+}
+
+model FileRequest {
+  id                String              @id @default(cuid())
+  title             String
+  description       String?
+  token             String              @unique
+  userId            String
+  folderId          String?
+  isActive          Boolean             @default(true)
+  expiresAt         DateTime?
+  maxFileSize       BigInt?
+  allowedTypes      String?
+  uploadCount       Int                 @default(0)
+  lastUploadAt      DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  Folder            Folder?             @relation(fields: [folderId], references: [id])
+  User              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  FileRequestUpload FileRequestUpload[]
+
+  @@index([userId])
+  @@index([token])
+  @@index([folderId])
+}
+
+model FileRequestUpload {
+  id              String      @id @default(cuid())
+  requestId       String
+  fileId          String
+  uploaderName    String?
+  uploaderEmail   String?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime    @default(now())
+  filename        String?
+  originalName    String?
+  sizeBytes       BigInt?
+  mimeType        String?
+  storageKey      String?
+  storageProvider String?
+  extension       String?
+  savedToFiles    Boolean     @default(false)
+  savedAt         DateTime?
+  FileRequest     FileRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([fileId])
+  @@index([uploaderEmail])
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  userId     String
+  type       ActivityType
+  fileId     String?
+  fileName   String?
+  folderId   String?
+  folderName String?
+  actorId    String?
+  actorName  String?
+  metadata   String?
+  isRead     Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  User       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([isRead])
+}
+
+model QuickTransfer {
+  id             String   @id @default(cuid())
+  userId         String?
+  fileName       String
+  mimeType       String?
+  sizeBytes      BigInt
+  storageKey     String
+  shareToken     String   @unique
+  password       String?
+  expiresAt      DateTime
+  downloadLimit  Int?
+  downloadCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+  message        String?
+  recipientEmail String?
+  sendMethod     String?
+  isDeleted      Boolean  @default(false)
+  cipherIv       String?
+  dekSalt        String?
+  encryptedDek   String?
+  isEncrypted    Boolean  @default(false)
+
+  @@index([shareToken])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+enum EncryptionState {
+  PLAINTEXT
+  ENCRYPTED
+  MIGRATING
+  MIGRATION_FAILED
+}
+
+enum SharePermission {
+  DOWNLOAD
+  VIEW
+  EDIT
+}
+
+enum FileStatus {
+  PENDING
+  ACTIVE
+  DELETED
+}
+
+enum TeamRole {
+  VIEWER
+  EDITOR
+  ADMIN
+  OWNER
+  MEMBER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REJECTED
+}
+
+enum ActivityType {
+  FILE_UPLOAD
+  FILE_DOWNLOAD
+  FILE_DELETE
+  FILE_SHARE
+  FILE_SHARE_EXPIRED
+  FILE_RENAME
+  FILE_RESTORE
+  FILE_MOVE
+  FOLDER_CREATE
+  FOLDER_DELETE
+  TEAM_MEMBER_JOINED
+  TEAM_MEMBER_LEFT
+  TEAM_INVITE_SENT
+  STORAGE_WARNING
+  STORAGE_FULL
+  LOGIN
+  LOGOUT
+  SECURITY_EVENT
+  OTHER
+  FILE_REQUEST_CREATED
+  FILE_REQUEST_EXPIRED
+  FILE_REQUEST_UPLOAD
+  TEAM_FILE_UPLOAD
+  TEAM_FILE_DELETE
+  TEAM_FOLDER_CREATE
+  TEAM_FOLDER_DELETE
+  TEAM_FILE_COMMENT
+  TEAM_FILE_DOWNLOAD
+}

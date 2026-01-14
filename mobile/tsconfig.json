@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["es2017", "esnext"],
+    "target": "es2017",
+    "jsx": "react-native",
+    "types": ["node"]
+  },
+  "exclude": [
+    "node_modules/**/*.tsconfig.json"
+  ]
+}
